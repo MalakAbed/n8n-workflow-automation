@@ -1,0 +1,1285 @@
+{
+  "name": "Pharma Price Comparison",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        800
+      ],
+      "id": "a4b33ca1-1d2f-47bd-8f80-5dce6043b2ae",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {},
+      "id": "b914f149-5692-49f0-89c1-3e01c7add256",
+      "name": "Extract ZIP",
+      "type": "n8n-nodes-base.compression",
+      "position": [
+        480,
+        1136
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "34da6eb3-6425-42d7-b3c9-34a221b9b0bc",
+      "name": "Extract PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "position": [
+        2144,
+        1264
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {}
+      },
+      "id": "29a4030d-9588-4d54-aa62-2571eae4b617",
+      "name": "Extract Excel",
+      "type": "n8n-nodes-base.extractFromFile",
+      "position": [
+        2448,
+        1456
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "url": "http://164.90.152.138:3000/api/status?api_key=adsfe21@Dadf4%a",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -112,
+        800
+      ],
+      "id": "1b9a9e89-68d4-4d76-8a4c-5b87a975f8e4",
+      "name": "Check WhatsApp API Status1"
+    },
+    {
+      "parameters": {
+        "url": "http://164.90.152.138:3000/api/export/2026-06-08?api_key=adsfe21@Dadf4%a",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        912
+      ],
+      "id": "7c2591a6-5c65-4fc6-8c7e-c34c8c326489",
+      "name": "Fetch Supplier ZIP Archive1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "72021d20-faf6-42f4-bc73-5192713cb9c0",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "=false",
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        112,
+        800
+      ],
+      "id": "93908c49-3ca1-4504-910a-f2e29ab2320d",
+      "name": "Is WhatsApp Offline?1"
+    },
+    {
+      "parameters": {
+        "chatId": "@whatsapp_status_checker",
+        "text": "=🚨 WhatsApp Connection Issue\n\nThe WhatsApp service is DOWN or requires re-authentication.\n\nPlease re-scan the QR code or restart the session.\n\nMessage: {{$json.message}}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        464,
+        688
+      ],
+      "id": "8b975a8c-1682-49cc-86f3-0ecc1eab4601",
+      "name": "Alert via Telegram1",
+      "webhookId": "9eb5aedd-da1a-4535-8014-f5126fe3fb22",
+      "credentials": {
+        "telegramApi": {
+          "id": "icyQtshuU0aOWW35",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3264,
+        1344
+      ],
+      "id": "25c6a449-9dae-4800-8ba3-580bc1ae156c",
+      "name": "Merge All Source Branches"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "text": "=You are an OCR and pharmaceutical product extraction system.\n\nYou may receive TWO inputs:\n1. An image of products\n2. (Optional) A caption — text that accompanied the image when shared\n   Captions OFTEN contain pricing information that is NOT visible inside the image itself.\n   Common caption format: a single number per line (the price), or a price list matched to product names.\n\n═══════════════════════════════════════════════════════\nEXTRACTION STEPS\n═══════════════════════════════════════════════════════\n\nStep 1: Extract ALL visible text from the image exactly as written.\n- Do NOT refuse.\n- Do NOT skip numbers.\n- Do NOT summarize.\n\nStep 2: Read the caption text (if provided). Caption may contain:\n- A single price number → applies to the single product in the image\n- Multiple prices → matched in order to products visible in the image\n- Product name + price pairs → match each price to its named product\n- \"السعر: X\" or \"X شيكل\" or just a bare number\n\nStep 3: Identify ALL products from the image.\n\nStep 4: Determine each product's price using this priority order:\n   (a) If caption contains a price for that product → use the caption price\n   (b) If the price is clearly visible in the image → use the image price\n   (c) Otherwise → null\n\n═══════════════════════════════════════════════════════\nOUTPUT FORMAT\n═══════════════════════════════════════════════════════\n\nFor each product return a JSON object with EXACTLY these fields:\n- name: full product identity — brand + dosage + package size + form combined\n- price: numeric value only (no currency symbol), or null\n- supplier: exactly this value: \"{{$json.supplier}}\"\n\n═══════════════════════════════════════════════════════\nPRICE RULES\n═══════════════════════════════════════════════════════\n\n- Caption price ALWAYS overrides image price when both exist\n- DO NOT invent prices not clearly present in image OR caption\n- Prices may appear near words like \"شيكل\", \"شكل\", \"₪\", \"NIS\", \"سعر\"\n- A bare number in the caption is almost always the price\n- Distinguish price from dosage: \"500 mg\" is dosage, not price\n- Distinguish price from quantity: \"20 tab\" is quantity, not price\n- If only ONE product is in the image and the caption has ONE number → that number is the price\n\n═══════════════════════════════════════════════════════\nGENERAL RULES\n═══════════════════════════════════════════════════════\n\n- Extract ALL products visible (medicines, devices, supplements, cosmetics)\n- DO NOT include company/manufacturer name inside the name field\n- Combine brand + dosage + package + form into one \"name\" string\n- Preserve Arabic text exactly as written\n- Clean OCR noise (stray punctuation, rotation artifacts)\n- Remove exact duplicates\n- Return ONLY a valid JSON array. No markdown. No explanation.\n═══════════════════════════════════════════════════════\nINPUT FOR THIS REQUEST\n═══════════════════════════════════════════════════════\n\n{{ $json.caption ? `Caption text:\\n${$json.caption}\\n\\n` : 'No caption provided.\\n\\n' }}Extract all products from the image now.",
+        "inputType": "base64",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        2176,
+        1056
+      ],
+      "id": "84a71d3a-1215-4263-a572-299f315f78b7",
+      "name": "Analyze image ",
+      "credentials": {
+        "openAiApi": {
+          "id": "zDiESvaU2HFVA6D8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse LLM response\nconst raw = $json.output?.[0]?.content?.[0]?.text ?? '';\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch(e) {\n  return [{ json: { error: 'LLM parse failed', raw: raw.slice(0, 200) } }];\n}\n\n// Build set of valid supplier names\nconst validSuppliers = new Set(\n  (parsed.groups ?? [])\n    .filter(g => g.is_valid === true)\n    .map(g => g.group_name)\n);\n\n// Filter all files from Extract ZIP to only valid suppliers\nconst allFiles = $items('Extract ZIP');\nconst output = [];\n\nfor (const item of allFiles) {\n  const binaries = item.binary || {};\n  for (const file of Object.values(binaries)) {\n    const dir = (file.directory || '').split('/')[0];\n    const supplier = dir.replace(/\\s*\\d{4,}.*$/, '').trim();\n    if (!validSuppliers.has(supplier)) continue;\n\n    const taggedFile = { ...file, supplierTag: supplier };\n    const name = (file.fileName || '').toLowerCase();\n    let type = 'unknown';\n    if (name.match(/\\.(jpg|jpeg|png|webp)$/)) type = 'image';\n    else if (name.endsWith('.pdf')) type = 'pdf';\n    else if (name.match(/\\.(xlsx|xls|sheet)$/)) type = 'excel';\n    else if (name.endsWith('.txt')) type = 'text';\n\n    output.push({\n      json: { supplier, type },\n      binary: { data: taggedFile }\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        1376
+      ],
+      "id": "e611a2fc-7e69-4694-b8c7-c47ac19d303f",
+      "name": "Filter Valid Suppliers"
+    },
+    {
+      "parameters": {
+        "jsCode": "const llmOutputs = $input.all();\nconst supplierGroups = $('Group By Supplier').all();\nconst allFiles = $('Filter Valid Suppliers').all();\nconst output = [];\n\nfor (let i = 0; i < llmOutputs.length; i++) {\n  const llmItem = llmOutputs[i];\n  const sourceItem = supplierGroups[i];\n\n  let textField = llmItem.json?.output?.[0]?.content?.[0]?.text ?? null;\n  let raw = '';\n  if (typeof textField === 'string') raw = textField;\n  else if (typeof textField === 'object' && textField?.message) raw = textField.message;\n\n  let parsed;\n  try { parsed = JSON.parse(raw); } catch { parsed = {}; }\n\n  const supplier = parsed.supplier ?? sourceItem?.json?.supplier ?? null;\n\n  let patterns = [];\n  if (Array.isArray(parsed.patterns)) patterns = parsed.patterns;\n  else if (parsed.pattern && parsed.pattern !== 'unknown') patterns = [parsed.pattern];\n\n  if (!supplier || patterns.length === 0) continue;\n  const patternSet = new Set(patterns);\n\n  for (const fileItem of allFiles) {\n    if (fileItem.json?.supplier !== supplier) continue;\n\n    const file = fileItem.binary?.data ?? {};\n    const rawFileName = file.fileName ?? '';\n    const fileName = rawFileName.toLowerCase();\n\n    let fileType = 'unknown';\n\n    // ── ✅ .txt يُفحص أولاً ──\n    if (fileName.endsWith('.txt')) {\n      const stripped = fileName.slice(0, -4);\n\n      // MIME artifacts من ملفات بصيغ ثنائية — تجاهل\n      if (\n        stripped.match(/spreadsheetml/i) ||\n        stripped.match(/\\.sheet$/i) ||\n        stripped.match(/\\.pdf$/i) ||\n        stripped.match(/\\.xlsx?$/i) ||\n        stripped.match(/officedocument/i) ||\n        stripped.match(/vnd\\.ms-excel/i) ||\n        stripped.match(/\\.(jpe?g|png|webp)$/i)\n      ) {\n        continue;\n      }\n\n      fileType = 'text';\n\n    } else if (fileName.match(/\\.(jpg|jpeg|png|webp)$/)) {\n      fileType = 'image';\n\n    } else if (fileName.endsWith('.pdf')) {\n      fileType = 'pdf';\n\n    } else if (\n      fileName.match(/\\.(xlsx|xls)$/) ||\n      fileName.match(/spreadsheetml\\.sheet$/) ||\n      fileName.match(/officedocument\\.spreadsheetml/) ||\n      fileName.match(/vnd\\.ms-excel/)\n    ) {\n      fileType = 'excel';\n    }\n\n    if (fileType === 'unknown') continue;\n    if (!patternSet.has(fileType)) continue;\n\n    output.push({\n      json: {\n        supplier,\n        pattern: fileType,\n        type: fileType,\n        fileName: rawFileName\n      },\n      binary: { data: file }\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        1376
+      ],
+      "id": "c4448cb6-9de8-4857-8c0b-4ed49b8a277c",
+      "name": "JSON Parser 1"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const rawText =\n  $json[0].content?.[0]?.text ??\n  $json[0].output?.[0]?.content?.[0]?.text ??\n  null;\n\n// const supplier =\n//   ($binary?.data || {}).supplierTag ??\n//   $json.supplier ??\n//   null;\nlet supplier = ($binary?.data || {}).supplierTag ?? null;\nif (!supplier) {\n  const sourceItem = $('Switch by Type').item;\n  supplier = sourceItem?.json?.supplier ?? null;\n}\n\n\nif (!rawText) return { json: { _skip: true } };\n\nlet parsed;\ntry {\n  const clean = rawText.replace(/^```json\\s*/i, '').replace(/```\\s*$/i, '').trim();\n  parsed = JSON.parse(clean);\n  if (!Array.isArray(parsed)) parsed = [parsed];\n} catch(e) { return []; }\n\nreturn {\n  json: {\n    products: parsed\n      .filter(p => p?.name && p.name.trim().length >= 3)\n      .map(p => ({\n    name: p.name.trim(),\n        price: typeof p.price === 'number' ? p.price : (parseFloat(p.price) || null),\n        supplier,\n        source: 'image'\n      }))\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2768,
+        1056
+      ],
+      "id": "8ce10b5a-1ca4-4cd7-8599-9be47a7bca3e",
+      "name": "Parse Image Response"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const rawText =\n  $json.output?.[0]?.content?.[0]?.text ??\n  $json.content?.[0]?.text ??\n  null;\n\nlet supplier = ($binary?.data || {}).supplierTag ?? null;\nif (!supplier) {\n  const sourceItem = $('Switch by Type').item;\n  supplier = sourceItem?.json?.supplier ?? null;\n}\n\nif (!rawText) return { json: { _skip: true } };\n\nlet parsed;\ntry {\n  const clean = rawText\n    .replace(/^```json\\s*/i, '')\n    .replace(/```\\s*$/i, '')\n    .trim();\n  parsed = JSON.parse(clean);\n  if (!Array.isArray(parsed)) parsed = [parsed];\n} catch(e) {\n  return { json: { _skip: true } };\n}\n\nreturn {\n  json: {\n    products: parsed\n      .filter(p => p?.name && p.name.trim().length >= 3)\n      .map(p => ({\n        name: p.name.trim(),\n        price: typeof p.price === 'number'\n          ? p.price\n          : (parseFloat(p.price) || null),\n        supplier,\n        source: 'pdf'\n      }))\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2752,
+        1264
+      ],
+      "id": "d05975be-606f-45ca-8aa6-9009a1aac111",
+      "name": "Parse PDF Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const extractItems = $('Extract Excel').all();\nconst sourceFiles = $('Prepare Excel Item').all();\n\nconst NAME_KEYWORDS  = ['اسم الصنف', 'إسم الصنف', 'اسم المنتج', 'المنتج', 'الصنف', 'name', 'product'];\nconst PRICE_KEYWORDS = ['سعر البيع', 'سعر الاول', 'السعر', 'سعر', 'price', 'cost'];\nconst UNIT_KEYWORDS  = ['وحدة', 'الوحدة', 'العبوة', 'unit', 'pack'];\nconst SKIP_KEYWORDS  = ['رقم', 'الرقم', 'كود', 'no.', 'id'];\nconst GENERIC_UNITS  = ['box', 'carton', 'pack'];\n\nfunction normalize(v) { return (v || '').toString().trim().toLowerCase(); }\nfunction matchesKeyword(val, keywords) {\n  const n = normalize(val);\n  return keywords.some(k => n.includes(normalize(k)));\n}\n\n// ── جمّع rows حسب الملف باستخدام pairedItem ──\nconst fileGroups = {};\n\nfor (const item of extractItems) {\n  const fileIdx = item.pairedItem?.item ?? 0;\n  if (!fileGroups[fileIdx]) fileGroups[fileIdx] = [];\n  fileGroups[fileIdx].push(item.json);\n}\n\nconst output = [];\n\n// ── عالج كل ملف لحاله ──\nfor (const [fileIdxStr, allRows] of Object.entries(fileGroups)) {\n  const fileIdx = parseInt(fileIdxStr, 10);\n  const supplier = sourceFiles[fileIdx]?.json?.supplier ?? null;\n\n  let nameKey = null, priceKey = null, unitKey = null;\n  let startIndex = 0;\n\n  // Detect from keys\n  const firstRow = allRows[0] ?? {};\n  for (const key of Object.keys(firstRow)) {\n    if (SKIP_KEYWORDS.some(sk => normalize(key).includes(normalize(sk)))) continue;\n    if (!nameKey  && matchesKeyword(key, NAME_KEYWORDS))  nameKey  = key;\n    if (!priceKey && matchesKeyword(key, PRICE_KEYWORDS)) priceKey = key;\n    if (!unitKey  && matchesKeyword(key, UNIT_KEYWORDS))  unitKey  = key;\n  }\n\n  // Fallback: scan values\n  if (!nameKey || !priceKey) {\n    for (let i = 0; i < Math.min(5, allRows.length); i++) {\n      const row = allRows[i];\n      for (const [key, val] of Object.entries(row)) {\n        if (SKIP_KEYWORDS.some(sk => normalize(key).includes(normalize(sk)))) continue;\n        if (!nameKey  && matchesKeyword(val, NAME_KEYWORDS))  nameKey  = key;\n        if (!priceKey && matchesKeyword(val, PRICE_KEYWORDS)) priceKey = key;\n        if (!unitKey  && matchesKeyword(val, UNIT_KEYWORDS))  unitKey  = key;\n      }\n      if (nameKey && priceKey) {\n        startIndex = i + 1;\n        break;\n      }\n    }\n  }\n\n  // Smart fallback\n  if (!nameKey || !priceKey) {\n    const sample = allRows.slice(0, 20);\n    const keys = Object.keys(sample[0] || {}).filter(k =>\n      !SKIP_KEYWORDS.some(sk => normalize(k).includes(normalize(sk)))\n    );\n    for (const key of keys) {\n      let textCount = 0, smallNumCount = 0;\n      for (const row of sample) {\n        const val = row[key];\n        if (typeof val === 'string' && val.trim().length > 3) textCount++;\n        const num = parseFloat(val);\n        if (!isNaN(num) && num > 0 && num < 5000) smallNumCount++;\n      }\n      const total = sample.length;\n      if (!nameKey && textCount >= total * 0.5) nameKey = key;\n      if (!priceKey && smallNumCount >= total * 0.5 && key !== nameKey) priceKey = key;\n    }\n  }\n\n  if (!nameKey || !priceKey) continue;\n\n  // Extract products\n  for (let i = startIndex; i < allRows.length; i++) {\n    const row = allRows[i];\n    const rawName  = row[nameKey];\n    const rawPrice = row[priceKey];\n    const rawUnit  = unitKey ? row[unitKey] : null;\n\n    if (!rawName || typeof rawName !== 'string') continue;\n\n    let name = rawName.trim();\n\n    if (rawUnit && typeof rawUnit === 'string') {\n      const u = rawUnit.trim();\n      if (u.length > 0 && !GENERIC_UNITS.includes(u.toLowerCase())) {\n        name = `${name} ${u}`;\n      }\n    }\n\n    const price = rawPrice !== null && rawPrice !== undefined\n      ? (typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || null)\n      : null;\n\n    if (name.length < 2) continue;\n    if (/^\\d+$/.test(name.trim())) continue;\n    if (matchesKeyword(name, NAME_KEYWORDS) || matchesKeyword(name, PRICE_KEYWORDS)) continue;\n    if (price === 0) continue;\n\n    output.push({ json: { name: name.trim(), price, supplier, source: 'excel' } });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2816,
+        1472
+      ],
+      "id": "57e66f41-a4f6-458a-b820-ba2ad35c5146",
+      "name": "Parse Excel Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const BATCH_SIZE = 100;\nconst output = [];\nconst flat = [];\n\nfor (const item of $input.all()) {\n  // If item came from image branch — unwrap products array\n  if (Array.isArray(item.json?.products)) {\n    for (const p of item.json.products) {\n      flat.push(p);\n    }\n  } else {\n    // PDF and Excel items arrive already flat\n    flat.push(item.json);\n  }\n}\n\nfor (let i = 0; i < flat.length; i += BATCH_SIZE) {\n  output.push({\n    json: { items: flat.slice(i, i + BATCH_SIZE) }\n  });\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        1376
+      ],
+      "id": "639dae90-d804-4624-a640-5ad631708efc",
+      "name": "Batch for Normalization"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a pharmaceutical product name normalizer.\n\nYou receive a JSON array of raw product records from multiple sources\n(images, PDFs, Excel files). Each item has: name, price, supplier, source.\n\n═══════════════════════════════════════════════════════\nVALIDITY CHECK\n═══════════════════════════════════════════════════════\n\nReturn {\"name\": \"INVALID\", \"name_normalized\": \"INVALID\"} ONLY if the text is:\n- a greeting, message, or chat fragment\n- a URL, IBAN, phone number, or pure number string\n- random non-product text\n\n✓ ALWAYS VALID (do NOT flag these):\n- Medical devices, contraceptives, supplements, cosmetics, baby products\n- Infant formula and milk products\n- Vitamins, minerals, gummies, herbal products\n- First-aid items, bandages, syringes\n\n═══════════════════════════════════════════════════════\nNORMALIZATION RULES\n═══════════════════════════════════════════════════════\n\nFor each valid product, return TWO fields:\n\n1) name: clean human-readable name in Title Case\n   Include: brand + dosage + package size + form\n   Exclude: company/manufacturer names, marketing fluff\n   Keep Arabic text exactly as-is\n\n2) name_normalized: fully lowercase, standardized for grouping\n\n──── UNIT STANDARDIZATION ────\n\nDOSAGE FORMS — always use PLURAL:\n   tab/tabs/tablet/tablets → \"tablets\"\n   cap/caps/capsule/capsules → \"capsules\"\n   amp/amps/ampoule/ampoules → \"ampoules\"\n   supp/suppository/suppositories → \"suppositories\"\n   sach/sachet/sachets → \"sachets\"\n   vial/vials → \"vials\"\n   gummy/gummies → \"gummies\"\n   pcs/pc/pec/piece/pieces → \"pieces\"\n\nLIQUID/FORM (no plural):\n   syr/syrup → \"syrup\"\n   susp/suspension → \"suspension\"\n   sol/soln/solution → \"solution\"\n   cr/crea/cream/creamcr → \"cream\"\n   ointment → \"ointment\"\n   gel → \"gel\"\n   spray → \"spray\"\n   drop/drops/dp → \"drops\"\n   lotion → \"lotion\"\n   shampoo → \"shampoo\"\n\nUNITS OF MEASURE:\n   mg/MG/mgs/mh → \"mg\"\n   mcg/μg → \"mcg\"\n   ml/mL/ML → \"ml\"\n   iu/IU → \"iu\"\n   % stays as \"%\"\n\nWEIGHT — context-sensitive:\n   \"g/gm/gms/gr\" → \"g\" ONLY when it follows a number (e.g., \"30 g\")\n   When the word is \"gummies\" or \"grams\" KEEP it as-is — never shorten \"gummies\" to \"g\"\n\n──── FORMATTING ────\n\n- Insert space between number and unit:\n   \"500mg\" → \"500 mg\"\n   \"20tab\" → \"20 tablets\"\n\n- Preserve decimals and percentages exactly:\n   \"0.025%\" stays \"0.025%\"\n   \"2.5 mg\" stays \"2.5 mg\"\n\n- Multiplication: expand \"AxB\" by computing the total:\n   \"3x21 Tablets\" → \"63 tablets\"  (only when both are clearly counts)\n   If unsure, keep as \"3x21 tablets\"\n\n- Remove duplicate tokens within the same name:\n   \"20 tablets 20 tablets\" → \"20 tablets\"\n\n- Word order: place dosage before count when both exist:\n   \"20 tablets 500 mg\" → \"500 mg 20 tablets\"\n\n- Remove filler words that add no info:\n   \"1 Bottle\", \"1 Pack\", \"Box of\", \"Pack of\", \"Each\" → omit\n   \"Effervescent Granules\" → keep only the form (e.g., \"sachets\")\n\n- Preserve Arabic text exactly — do not translate, transliterate, or skip\n\n──── EXAMPLES ────\n\nInput: \"PANADOL EXTRA 24TAB\"\nOutput: { \"name\": \"Panadol Extra 24 Tablets\",\n          \"name_normalized\": \"panadol extra 24 tablets\" }\n\nInput: \"Tritace 2.5 14 Tablets\"\nOutput: { \"name\": \"Tritace 2.5 mg 14 Tablets\",\n          \"name_normalized\": \"tritace 2.5 mg 14 tablets\" }\n\nInput: \"Iron Gummies 60 Gummies\"\nOutput: { \"name\": \"Iron Gummies 60 Gummies\",\n          \"name_normalized\": \"iron gummies 60 gummies\" }\n\nInput: \"Augmentin 1g 14tab\"\nOutput: { \"name\": \"Augmentin 1 g 14 Tablets\",\n          \"name_normalized\": \"augmentin 1 g 14 tablets\" }\n\nInput: \"Yasmin 3x21 Film-Coated Tablets\"\nOutput: { \"name\": \"Yasmin 63 Film-Coated Tablets\",\n          \"name_normalized\": \"yasmin 63 tablets\" }\n\nInput: \"https://wa.me/12345\"\nOutput: { \"name\": \"INVALID\", \"name_normalized\": \"INVALID\" }\n\n═══════════════════════════════════════════════════════\nOUTPUT FORMAT\n═══════════════════════════════════════════════════════\n\nReturn ONLY a valid JSON array. No markdown. No explanation.\nEach element must have exactly: {name, name_normalized}\nNo extra fields."
+            },
+            {
+              "content": "==={{ JSON.stringify($json.items) }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        3728,
+        1376
+      ],
+      "id": "02e20880-1d2b-492a-b218-69cc262ad000",
+      "name": "AI: Normalize All Products",
+      "credentials": {
+        "openAiApi": {
+          "id": "zDiESvaU2HFVA6D8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function makeGroupKey(norm) {\n  if (!norm) return null;\n  return norm\n    .replace(/[^\\w\\s\\u0600-\\u06ff\\u00C0-\\u024F%./]/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim()\n    .substring(0, 100);\n}\n\n// function isInvalid(val) {\n//   return !val || val.trim().toUpperCase() === 'INVALID';\n// }\n\nconst llmOutputs = $input.all();\nconst batchInputs = $('Batch for Normalization').all();\nconst output = [];\n\nfor (let b = 0; b < llmOutputs.length; b++) {\n  const rawText = llmOutputs[b].json?.output?.[0]?.content?.[0]?.text ?? null;\n  const originals = batchInputs[b]?.json?.items ?? [];\n\n  let parsed = null;\n  if (rawText) {\n    try {\n      const clean = rawText\n        .replace(/^```json\\s*/i, '')\n        .replace(/```\\s*$/i, '')\n        .trim();\n      parsed = JSON.parse(clean);\n      if (!Array.isArray(parsed)) parsed = [parsed];\n    } catch(e) { parsed = null; }\n  }\n\n  for (let i = 0; i < originals.length; i++) {\n    const orig = originals[i];\n    const llm = parsed?.[i] ?? null;\n\n    // Drop items the AI flagged as invalid\n    //if (llm && isInvalid(llm.name)) continue;\n\n    const llmName = llm?.name?.trim() ?? null;\n  const isInvalidFlag = llmName?.toUpperCase() === 'INVALID';\n\n  // If LLM flagged INVALID, use original name instead of dropping\n  const finalName = (!llmName || isInvalidFlag)\n    ? (orig.name ?? null)\n    : llmName;\n    // const finalName = llm?.name?.trim() ?? orig.name ?? null;\n    // if (!finalName) continue;\n\n  const llmNorm = llm?.name_normalized?.trim() ?? null;\n  const isInvalidNorm = llmNorm?.toUpperCase() === 'INVALID';\n  \n  const finalNorm = (\n    llmNorm &&\n    !isInvalidNorm &&\n    llmNorm === llmNorm.toLowerCase() &&\n    llmNorm.length >= 2\n  )\n    ? llmNorm\n    : orig.name?.toLowerCase().trim() ?? null;\n\n    if (!finalNorm) continue;\n\n    // Price always from original — never trust LLM with price\n    const price = typeof orig.price === 'number'\n      ? orig.price\n      : (parseFloat(orig.price) || null);\n\n    output.push({\n      json: {\n        name: finalName,\n        name_normalized: finalNorm,\n        _group_key: makeGroupKey(finalNorm),\n        price,\n        supplier: orig.supplier ?? null,\n        source: orig.source ?? null\n      }\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4048,
+        1376
+      ],
+      "id": "ee28194a-184c-40cf-bcfa-446fbea9c006",
+      "name": "Output Validator"
+    },
+    {
+      "parameters": {
+        "jsCode": "const BATCH_SIZE = 150;\nconst all = $input.all().map(i => i.json);\nconst batches = [];\n\nfor (let i = 0; i < all.length; i += BATCH_SIZE) {\n  batches.push({\n    json: { items: all.slice(i, i + BATCH_SIZE) }\n  });\n}\n\nreturn batches;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4240,
+        1376
+      ],
+      "id": "cbe1e484-c997-4ec8-9613-d511240aeb85",
+      "name": "Prepare Grouping Batch"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a pharmaceutical product price comparison system.\n\nYou receive a JSON array of normalized product records. Each has:\n- name: clean product name\n- name_normalized: lowercase standardized name\n- _group_key: grouping key\n- price: numeric price or null\n- supplier: supplier name\n- source: image / pdf / excel\n\n═══════════════════════════════════════════════════════\nTASK: AGGRESSIVELY GROUP IDENTICAL PRODUCTS\n═══════════════════════════════════════════════════════\n\nYour PRIMARY job is to recognize that the same pharmaceutical product can be written differently by different suppliers. You MUST detect these matches and merge them into one group with multiple offers.\n\nTwo records are the SAME PRODUCT when they share:\n✓ Same brand/active ingredient name (allow minor spelling variants)\n✓ Same dosage strength (mg/g/ml/mcg/iu/%)\n✓ Same package count (number of tablets/capsules/ampoules/sachets/ml)\n✓ Same dosage form (tablet/capsule/syrup/cream/drops/etc.)\n\n═══════════════════════════════════════════════════════\nNORMALIZATION RULES — apply BEFORE comparing\n═══════════════════════════════════════════════════════\n\nThese differences are COSMETIC and must be IGNORED when matching:\n\n1. UNIT NOTATION\n   \"mg\" = \"Mg\" = \"MG\" = \"mG\"     (case insensitive)\n   \"g\" = \"gm\" = \"Gm\" = \"GM\"\n   \"ml\" = \"mL\" = \"ML\"\n   \"2.5\" = \"2,5\" = \"2 5\"          (decimal separators)\n\n2. WHITESPACE & PUNCTUATION\n   \"Film-Coated\" = \"Film Coated\" = \"FilmCoated\"\n   \"/\" = \" / \" = \" /\"             (slashes with/without spaces)\n   \"x\" = \" x \" = \" X \"            (multiplication symbol)\n   Trailing/leading spaces ignored\n\n3. EQUIVALENT WORDS\n   \"Tab\" = \"Tablet\" = \"Tablets\" = \"Tabs\" = \"F.C.\" = \"Film-Coated Tablet\"\n   \"Cap\" = \"Capsule\" = \"Capsules\" = \"Caps\"\n   \"Amp\" = \"Ampoule\" = \"Ampoules\" = \"Ampule\"\n   \"Sach\" = \"Sachet\" = \"Sachets\"\n   \"Supp\" = \"Suppository\" = \"Suppositories\"\n   \"Syr\" = \"Syrup\"\n   \"Susp\" = \"Suspension\"\n   \"Sol\" = \"Solution\"\n   \"Oint\" = \"Ointment\"\n   \"Inj\" = \"Injection\"\n\n4. OPTIONAL DESCRIPTIVE WORDS — ignore when matching\n   \"Effervescent\", \"Granules\", \"Delayed Release\", \"Extended Release\",\n   \"Immediate Release\", \"Oral Use\", \"Coated\", \"Sterile\", \"Ophthalmic\",\n   \"Topical\", \"1 Bottle\", \"1 Pack\", \"Box of\", \"Pack of\"\n\n5. SPELLING VARIANTS\n   \"Urosolvin\" ≈ \"Urosolvine\"     (trailing 'e')\n   \"Tritace 2.5 14 Tablets\" ≈ \"Tritace 2.5 mg 14 Tablets\"   (mg implicit)\n   \"Augmentin ES 600\" ≈ \"Augmentin ES 600 Mg\"\n   Latin/Arabic transliteration variants of the same brand\n\n6. WORD ORDER\n   \"20 Tablets 500 Mg\" = \"500 Mg 20 Tablets\"\n\n═══════════════════════════════════════════════════════\nEXPLICIT MATCHING EXAMPLES\n═══════════════════════════════════════════════════════\n\n✓ MATCH (merge into one group with 2 offers):\n   \"Tritace 2.5 14 Tablets\"           +   \"Tritace 2.5 mg 14 Tablets\"\n   \"Urosolvin 12 Sachets\"             +   \"Urosolvine 12 Sachets x 5 g Effervescent Granules\"\n   \"Augmentin ES 600 Suspension\"      +   \"Augmentin ES 600 Mg Suspension 1 Bottle\"\n   \"Cetal 500 20 Tab\"                 +   \"Cetal 500 Mg 20 Tablets\"\n   \"Vonaspire 20 14 F.C.\"             +   \"Vonaspire 20 mg 14 Film-Coated Tablets\"\n\n✗ DO NOT MATCH (different products):\n   \"Tritace 2.5 mg 14 Tablets\"        ≠   \"Tritace 5 mg 14 Tablets\"     (different dose)\n   \"Panadol Extra 24 Tablets\"         ≠   \"Panadol Extra 36 Tablets\"    (different count)\n   \"Brufen 400 Mg 30 Tablets\"         ≠   \"Brufen 600 Mg 30 Tablets\"    (different dose)\n   \"Move 50 Cream\"                    ≠   \"Move 100 Mg Cream\"           (different strength)\n   \"Fucidin 30 G Cream\"               ≠   \"Fucicort 15 G\"               (different brand)\n\n═══════════════════════════════════════════════════════\nOUTPUT — for each group produce:\n═══════════════════════════════════════════════════════\n\n{\n  \"name\": \"<most complete and descriptive name from the group>\",\n  \"name_normalized\": \"<lowercase standardized name>\",\n  \"best_price\": <lowest non-null price>,\n  \"best_supplier\": \"<supplier with lowest price>\",\n  \"offers_count\": <number of distinct supplier+price pairs>,\n  \"all_offers\": [\n    { \"supplier\": \"<name>\", \"price\": <number> },\n    ...\n  ]\n}\n\n═══════════════════════════════════════════════════════\nHARD RULES\n═══════════════════════════════════════════════════════\n\n✗ DO NOT merge products with different DOSAGE STRENGTHS\n✗ DO NOT merge products with different PACKAGE COUNTS\n✗ DO NOT merge products with different DOSAGE FORMS (cream ≠ gel ≠ tablet)\n✗ DO NOT merge products with different BRANDS\n✗ DO NOT hallucinate prices not present in the input\n✗ DO NOT split the same product into multiple groups due to cosmetic spelling differences\n✓ DO sort all_offers by price ascending\n✓ DO use the longest, most informative name as the group name\n✓ DO set best_price and best_supplier to null if all offers have null price\n\n═══════════════════════════════════════════════════════\nOUTPUT FORMAT\n═══════════════════════════════════════════════════════\n\nReturn ONLY a valid JSON array. No markdown. No explanation. No code fences.\n\n[\n  { ...group1... },\n  { ...group2... }\n]"
+            },
+            {
+              "content": "==={{ JSON.stringify($json.items) }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 30000,
+          "temperature": 0,
+          "topP": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        4416,
+        1376
+      ],
+      "id": "ad4533c4-a7ed-40c5-a9a9-95bfb2902350",
+      "name": "AI: Group + Best Price",
+      "credentials": {
+        "openAiApi": {
+          "id": "zDiESvaU2HFVA6D8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const LINES_PER_CHUNK = 50;\nconst output = [];\n\n// Build a fileName → supplier lookup from Filter Valid Suppliers\nconst supplierLookup = {};\nfor (const item of $('Filter Valid Suppliers').all()) {\n  const file = item.binary?.data ?? {};\n  const fileName = file.fileName ?? '';\n  const supplier = file.supplierTag ?? item.json?.supplier ?? null;\n  if (fileName && supplier) {\n    supplierLookup[fileName] = supplier;\n  }\n}\n\nfor (const item of $input.all()) {\n  const text = item.json?.text ?? '';\n\n  // Try binary tag first\n  let supplier = (item.binary?.data || {}).supplierTag ?? null;\n\n  // Fallback: match by fileName against Filter Valid Suppliers lookup\n  if (!supplier) {\n    const fileName = item.binary?.data?.fileName ?? '';\n    supplier = supplierLookup[fileName] ?? null;\n  }\n\n  if (!text) continue;\n\n  const lines = text\n    .split('\\n')\n    .map(l => l.trim())\n    .filter(Boolean);\n\n  const totalChunks = Math.ceil(lines.length / LINES_PER_CHUNK);\n\n  for (let i = 0; i < lines.length; i += LINES_PER_CHUNK) {\n    const chunkLines = lines.slice(i, i + LINES_PER_CHUNK);\n    output.push({\n      json: {\n        text: chunkLines.join('\\n'),\n        supplier,\n        chunk_index: Math.floor(i / LINES_PER_CHUNK),\n        total_chunks: totalChunks\n      }\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2304,
+        1264
+      ],
+      "id": "c8525b3a-e51a-476c-b01e-99f940bab195",
+      "name": "Chunk PDF Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = [];\n\nfor (const item of $input.all()) {\n  if (item.json._skip) continue;\n\n  const products = item.json.products ?? [];\n  for (const p of products) {\n    output.push({ json: p });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2928,
+        1264
+      ],
+      "id": "41ad0329-5ee5-49c5-ac15-b6c565113ab6",
+      "name": "Unpack PDF Products"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "c12f82c0-c2e5-4ca8-aefc-c4f31590ef73",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "5f0b8989-97b6-4063-b395-e17112d72d4c",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "a0addeb7-42a0-463b-91e3-f461e1584c09",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "excel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "985a7428-c48f-427b-81b3-276dbd12a6a1",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7dc52d06-e3b5-4495-9a69-1255256ce463",
+      "name": "Switch by Type",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        1776,
+        1344
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const rawText =\n  $json.output?.[0]?.content?.[0]?.text ??\n  $json.content?.[0]?.text ??\n  null;\n\nif (!rawText) return { json: { _skip: true } };\n\nlet parsed;\ntry {\n  const clean = rawText\n    .replace(/^```json\\s*/i, '')\n    .replace(/```\\s*$/i, '')\n    .trim();\n  parsed = JSON.parse(clean);\n  if (!Array.isArray(parsed)) parsed = [parsed];\n} catch(e) {\n  return { json: { _skip: true } };\n}\n\nreturn {\n  json: {\n    groups: parsed.filter(g => g?.name)\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4768,
+        1376
+      ],
+      "id": "7de76395-0ab7-4429-b345-1595d2deb865",
+      "name": "Parse Batch Results"
+    },
+    {
+      "parameters": {
+        "jsCode": "const finalGroups = {};\n\nfor (const item of $input.all()) {\n  if (item.json._skip) continue;\n\n  const groups = item.json.groups ?? [];\n\n  for (const group of groups) {\n    const key = (group.name_normalized ?? group.name ?? '')\n      .toLowerCase()\n      .replace(/[^\\w\\s\\u0600-\\u06ff\\u00C0-\\u024F%./]/g, ' ')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .substring(0, 100);\n\n    if (!key) continue;\n\n    if (!finalGroups[key]) {\n      finalGroups[key] = {\n        name: group.name,\n        name_normalized: group.name_normalized ?? key,\n        best_price: null,\n        best_supplier: null,\n        offers_count: 0,\n        all_offers: []\n      };\n    }\n\n    const existing = finalGroups[key];\n\n    if (group.name && group.name.length > (existing.name?.length ?? 0)) {\n      existing.name = group.name;\n    }\n\n    for (const offer of (group.all_offers ?? [])) {\n      if (offer.price === null || offer.price === undefined) continue;\n\n      const isDuplicate = existing.all_offers.find(\n        o => o.supplier === offer.supplier && o.price === offer.price\n      );\n\n      if (!isDuplicate) {\n        existing.all_offers.push(offer);\n\n        if (existing.best_price === null || offer.price < existing.best_price) {\n          existing.best_price = offer.price;\n          existing.best_supplier = offer.supplier;\n        }\n      }\n    }\n  }\n}\n\nreturn Object.values(finalGroups)\n  .map(g => {\n    g.all_offers.sort((a, b) => a.price - b.price);\n    g.offers_count = g.all_offers.length;\n    return { json: g };\n  })\n  .sort((a, b) => (a.json.name ?? '').localeCompare(b.json.name ?? ''));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4976,
+        1376
+      ],
+      "id": "dafe0c30-7676-46c9-8cfa-b12bd61518fc",
+      "name": "Merge Final Groups"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a classifier that determines whether a WhatsApp group name represents a pharmaceutical supplier group.\n\nYou will receive a list of group names.\n\nYour task:\nClassify each group as either:\n- a pharmaceutical supplier group (is_valid = true)\n- or not (is_valid = false)\n\n---\n\n# ✅ HOW TO DECIDE\n\nA group is likely a pharmaceutical supplier if the name suggests:\n\n- a company or business (e.g., contains words like شركة, مستودع, medical, pharma)\n- a warehouse, distributor, or supplier\n- a brand or organization name\n\nExamples of VALID:\n- \"شركة ومستودع مسلم فارم\"\n- \"شركة يو اند مي U&Me\"\n- \"Mesk Medical Company\"\n\n---\n\nA group is NOT valid if the name suggests:\n\n- personal or social group (e.g., family, friends, emojis)\n- general chat or unrelated topic\n- no business or medical indication\n\nExamples of INVALID:\n- \"قروب العيلة\"\n- \"شباب نابلس\"\n- \"Friends Group\"\n\n---\n\n# ⚠️ IMPORTANT RULES\n\n- Be lenient: if the name looks like a company, assume it is valid\n- Do NOT require medical keywords strictly — company names are enough\n- Do NOT hallucinate or add information\n- Base your decision ONLY on the group name\n- DO NOT wrap output in ```json or ``` under any circumstances.\n---\n\n# 📦 OUTPUT FORMAT\n\nReturn a JSON object with this structure:\n\n{\n  \"groups\": [\n    { \"group_name\": \"...\", \"is_valid\": true }\n  ]\n}\nNo explanations.\nNo extra text.\nOnly JSON"
+            },
+            {
+              "content": "=={{ JSON.stringify(\n(() => {\n  const groups = new Set();\n  for (const item of $items(\"Extract ZIP\")) {\n    const binaries = item.binary || {};\n    for (const file of Object.values(binaries)) {\n      const dir = file?.directory;\n      if (dir) groups.add(dir.split('/')[0].replace(/\\s*\\d{4,}.*$/, '').trim());\n    }\n  }\n  return Array.from(groups).map(name => ({ group_name: name }));\n})()\n) }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        448,
+        1376
+      ],
+      "id": "ec360198-5305-40be-a579-94ff5b00f663",
+      "name": "Classify Pharma Groups1",
+      "credentials": {
+        "openAiApi": {
+          "id": "zDiESvaU2HFVA6D8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sourceFiles = $('Filter Valid Suppliers').all();\nconst output = [];\n\nfunction findSupplier(fileName) {\n  const fileItem = sourceFiles.find(f =>\n    (f.binary?.data?.fileName ?? '') === fileName\n  );\n  return fileItem?.json?.supplier ?? null;\n}\n\nfor (const item of $input.all()) {\n  const fileName = item.binary?.data?.fileName ?? '';\n  const supplier = findSupplier(fileName);\n\n  // الـ text موجود في item.json.data أو item.json.text حسب Extract from File\n  const text = item.json?.data ?? item.json?.text ?? '';\n  if (!text || typeof text !== 'string') continue;\n\n  // كل سطر = منتج واحد، السعر آخر رقم في السطر\n  const lines = text.split(/\\r?\\n/).map(l => l.trim()).filter(Boolean);\n\n  for (const line of lines) {\n    const match = line.match(/(\\d+(?:\\.\\d+)?)\\s*$/);\n    if (!match) continue;\n\n    const price = parseFloat(match[1]);\n    const name = line.replace(/(\\d+(?:\\.\\d+)?)\\s*$/, '').trim();\n\n    if (!name || name.length < 2) continue;\n    if (price === 0) continue;\n\n    output.push({\n      json: {\n        name,\n        price,\n        supplier,\n        source: 'text'\n      }\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2528,
+        1792
+      ],
+      "id": "e6b33dab-6c3b-4b40-a269-7b575967cd8d",
+      "name": "Parse Text File"
+    },
+    {
+      "parameters": {
+        "jsCode": "const groups = {};\n\nfor (const item of $input.all()) {\n  const supplier = item.json?.supplier ?? null;\n  if (!supplier) continue;\n\n  if (!groups[supplier]) {\n    groups[supplier] = {\n      supplier,\n      files: [],\n      decoded_files: [],\n      txt_contents: []\n    };\n  }\n\n  const file = item.binary?.data ?? {};\n  const rawFileName = file.fileName ?? '';\n  const fileName = rawFileName.toLowerCase();\n\n  groups[supplier].files.push(rawFileName);\n\n  // Decode MIME-type .txt filenames to reveal original type\n  if (fileName.endsWith('.txt')) {\n    const stripped = fileName.slice(0, -4);\n    let interpretation = 'text file';\n    if (stripped.match(/\\.(xlsx|xls)$/i) || stripped.match(/sheet|spreadsheet|officedocument\\.spreadsheetml/i))\n      interpretation = 'Excel file (extracted text)';\n    else if (stripped.match(/\\.pdf$/i) || stripped.match(/pdf/i))\n      interpretation = 'PDF file (extracted text)';\n    groups[supplier].decoded_files.push(`${rawFileName} → [${interpretation}]`);\n\n    // Read txt content\n    try {\n      const buffer = Buffer.from(file.data, 'base64');\n      const text = buffer.toString('utf8').trim();\n      if (text) {\n        groups[supplier].txt_contents.push({\n          file: rawFileName,\n          content: text.substring(0, 500)\n        });\n      }\n    } catch(e) {}\n  } else {\n    groups[supplier].decoded_files.push(rawFileName);\n  }\n}\n\nreturn Object.values(groups).map(g => ({ json: g }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        1376
+      ],
+      "id": "a546cf93-8b50-4fed-9706-94ee266d201e",
+      "name": "Group By Supplier"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Gne5fSBwb-aCpeqWMJbVPmBUVnGlli10ExJQ1t5u5lQ",
+          "mode": "list",
+          "cachedResultName": "Drug Price Comparison",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Gne5fSBwb-aCpeqWMJbVPmBUVnGlli10ExJQ1t5u5lQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $json.sheet_name }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "sheet_name",
+              "displayName": "sheet_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name_normalized",
+              "displayName": "name_normalized",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "best_price",
+              "displayName": "best_price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "best_supplier",
+              "displayName": "best_supplier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "offers_count",
+              "displayName": "offers_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        5712,
+        1376
+      ],
+      "id": "0c94be3c-32d8-4d60-a696-f55c9cdcb9eb",
+      "name": "Export to Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "t4eNM4C1Mcqfplrt",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const today = new Date().toISOString().slice(0, 10);\nconst sheetName = `Prices_${today}`;\nconst documentId = '1Gne5fSBwb-aCpeqWMJbVPmBUVnGlli10ExJQ1t5u5lQ';\nconst sheetUrl = `https://docs.google.com/spreadsheets/d/${documentId}/edit`;\n\nconst data = [];\n\nfor (const item of $input.all()) {\n  data.push({\n    name: item.json.name ?? '',\n    name_normalized: item.json.name_normalized ?? '',\n    best_price: item.json.best_price ?? '',\n    best_supplier: item.json.best_supplier ?? '',\n    offers_count: item.json.offers_count ?? ''\n  });\n}\n\nreturn [\n  {\n    json: {\n      sheet_name: sheetName,\n      sheet_url: sheetUrl,\n      product_count: data.length,\n      rows: data\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5184,
+        1376
+      ],
+      "id": "8fd08eae-af04-4b39-9213-6fc0aedbb32c",
+      "name": "Prepare Sheet Data"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "documentId": {
+          "__rl": true,
+          "value": "1Gne5fSBwb-aCpeqWMJbVPmBUVnGlli10ExJQ1t5u5lQ",
+          "mode": "list",
+          "cachedResultName": "Drug Price Comparison",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Gne5fSBwb-aCpeqWMJbVPmBUVnGlli10ExJQ1t5u5lQ/edit?usp=drivesdk"
+        },
+        "title": "={{ $json.sheet_name }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        5472,
+        1216
+      ],
+      "id": "3ee3b362-ba82-47eb-8e74-2c8914e8bf96",
+      "name": "Create sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "t4eNM4C1Mcqfplrt",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = [];\nfor (const item of $input.all()) {\n  const supplierTag = item.binary?.data?.supplierTag ?? item.json?.supplier ?? null;\n  \n  output.push({\n    json: {\n      supplier: supplierTag\n    },\n    binary: item.binary\n  });\n}\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        1440
+      ],
+      "id": "33b25a83-5bb8-433b-84ed-0a1f9c0d6e89",
+      "name": "Prepare Excel Item"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a pharmaceutical price list parser for Arabic PDF tables.\n\nThe table has these columns (right to left):\nالرقم (row number) | إسم الصنف (product name) | الوحدة (unit/package) | سعر البيع الأول (price — small number, 1–999)\n\nFor each data row extract:\n- name: product name from إسم الصنف column, with الوحدة (unit/package) appended if present\n- price: the SMALL number from سعر البيع الأول — NOT the large row index number\n\nCritical rules:\n- Row numbers are NEVER the price.\n- Prices are small (1–999 range).\n- Skip the header (first) row that contains the columns' names.\n- Preserve Arabic text exactly, DO NOT translate or skip it.\n- Return ONLY a valid JSON array. No explanation. No markdown.\n\nExample: \"71  (Indomethasone) Supp 10  16\"\nOutput: {\"name\": \"(Indomethasone) Supp 10\", \"price\": 16}"
+            },
+            {
+              "content": "={{ $json.text }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 4000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        2464,
+        1264
+      ],
+      "id": "eac4b538-ac84-445f-bb09-633073284abd",
+      "name": "AI: Extract from PDF",
+      "credentials": {
+        "openAiApi": {
+          "id": "zDiESvaU2HFVA6D8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sheetName = $json.sheet_name;\nconst rows = $json.rows || [];\n\nreturn rows.map(r => ({\n  json: {\n    ...r,\n    sheet_name: sheetName\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5472,
+        1376
+      ],
+      "id": "4111a6c5-1433-4189-bc11-f84e6c023f37",
+      "name": "Split rows"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a pharmaceutical supplier data source analyst.\n\n═══════════════════════════════════════════════════════\nYOUR JOB\n═══════════════════════════════════════════════════════\n\nYou receive:\n1. A supplier name\n2. A list of filenames in their folder\n3. (Optional) Content of text files in the folder\n\nYour job: identify WHICH file types contain product+price data for this supplier,\nso downstream code can route correctly.\n\n═══════════════════════════════════════════════════════\nFILE TYPE INTERPRETATION\n═══════════════════════════════════════════════════════\n\nCommon file types you'll see:\n\n- .xlsx / .xls / .sheet / files containing \"spreadsheetml\" / \"officedocument\"\n  → Excel spreadsheet with structured price list\n\n- .pdf\n  → PDF document, may contain a price table\n\n- .jpg / .jpeg / .png / .webp\n  → Product image — price written inside the image itself\n\n- .txt files come in MANY variations — judge each carefully:\n\n  (a) MIME-artifact .txt — filename contains \"spreadsheetml\", \".sheet\",\n      \".xlsx\", \".pdf\", or similar binary format markers\n      → IGNORE — these are corrupt text extractions of binary files,\n        the real binary file exists separately\n\n  (b) Standalone .txt — names like msg_X.txt, message_X.txt, list.txt\n      Usually WhatsApp text dumps with one product per line\n      → include \"text\" in patterns\n\n═══════════════════════════════════════════════════════\nOUTPUT FORMAT\n═══════════════════════════════════════════════════════\n\nReturn ONLY this JSON. No markdown, no explanation outside the JSON:\n\n{\n  \"supplier\": \"<supplier name>\",\n  \"patterns\": [<one or more of: \"excel\", \"pdf\", \"image\", \"text\">],\n  \"reasoning\": \"<one short sentence>\"\n}\n\nRules:\n- patterns is an array — include ALL relevant types\n- NEVER return patterns: [] — if a folder has files, at least one pattern must apply\n  (Unless the folder contains only text file(s) with garbage / unreadable content)\n- Multi-source suppliers are normal: [\"excel\", \"image\"] or [\"pdf\", \"text\"] are valid\n\nExamples:\n   { \"patterns\": [\"excel\"] }            Excel only\n   { \"patterns\": [\"excel\", \"image\"] }   Excel + product images with prices inside\n   { \"patterns\": [\"image\"] }            Images only, prices visible inside\n   { \"patterns\": [\"pdf\", \"text\"] }      PDF table + WhatsApp messages\n   { \"patterns\": [\"text\"] }             Single WhatsApp dump"
+            },
+            {
+              "content": "=Supplier: {{ $json.supplier }}\n\nFiles in this folder (with interpreted types):\n{{ $json.decoded_files.join('\\n') }}\n\n{{ $json.txt_contents.length > 0 ? 'Content of text files:\\n' + $json.txt_contents.map(t => t.file + ':\\n' + t.content).join('\\n\\n') : '' }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1200,
+        1376
+      ],
+      "id": "9b7247de-a2f6-428c-b8b8-7bb0435cc5da",
+      "name": "Detect Supplier Pattern1",
+      "credentials": {
+        "openAiApi": {
+          "id": "zDiESvaU2HFVA6D8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "@whatsapp_status_checker",
+        "text": "={{ `📊 *تقرير مقارنة أسعار الأدوية*\\n📅 ${$('Prepare Sheet Data').first().json.sheet_name}\\n📦 ${$('Prepare Sheet Data').first().json.product_count} منتج\\n\\n🔗 ${$('Prepare Sheet Data').first().json.sheet_url}` }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        5488,
+        1536
+      ],
+      "id": "cee5fcfa-09a5-4fd3-acda-42397b18d8a9",
+      "name": "Send a text message",
+      "webhookId": "921f9bfe-0c1d-4ad6-8265-14ea467907bb",
+      "credentials": {
+        "telegramApi": {
+          "id": "icyQtshuU0aOWW35",
+          "name": "Telegram account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Check WhatsApp API Status1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract ZIP": {
+      "main": [
+        [
+          {
+            "node": "Classify Pharma Groups1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF": {
+      "main": [
+        [
+          {
+            "node": "Chunk PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Excel": {
+      "main": [
+        [
+          {
+            "node": "Parse Excel Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check WhatsApp API Status1": {
+      "main": [
+        [
+          {
+            "node": "Is WhatsApp Offline?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Supplier ZIP Archive1": {
+      "main": [
+        [
+          {
+            "node": "Extract ZIP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is WhatsApp Offline?1": {
+      "main": [
+        [
+          {
+            "node": "Alert via Telegram1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Supplier ZIP Archive1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Source Branches": {
+      "main": [
+        [
+          {
+            "node": "Batch for Normalization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze image ": {
+      "main": [
+        [
+          {
+            "node": "Parse Image Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Valid Suppliers": {
+      "main": [
+        [
+          {
+            "node": "Group By Supplier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON Parser 1": {
+      "main": [
+        [
+          {
+            "node": "Switch by Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Image Response": {
+      "main": [
+        [
+          {
+            "node": "Merge All Source Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse PDF Response": {
+      "main": [
+        [
+          {
+            "node": "Unpack PDF Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Excel Response": {
+      "main": [
+        [
+          {
+            "node": "Merge All Source Branches",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Batch for Normalization": {
+      "main": [
+        [
+          {
+            "node": "AI: Normalize All Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Normalize All Products": {
+      "main": [
+        [
+          {
+            "node": "Output Validator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Validator": {
+      "main": [
+        [
+          {
+            "node": "Prepare Grouping Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Grouping Batch": {
+      "main": [
+        [
+          {
+            "node": "AI: Group + Best Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Group + Best Price": {
+      "main": [
+        [
+          {
+            "node": "Parse Batch Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk PDF Text": {
+      "main": [
+        [
+          {
+            "node": "AI: Extract from PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unpack PDF Products": {
+      "main": [
+        [
+          {
+            "node": "Merge All Source Branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Switch by Type": {
+      "main": [
+        [
+          {
+            "node": "Analyze image ",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Excel Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Text File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Batch Results": {
+      "main": [
+        [
+          {
+            "node": "Merge Final Groups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Final Groups": {
+      "main": [
+        [
+          {
+            "node": "Prepare Sheet Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Pharma Groups1": {
+      "main": [
+        [
+          {
+            "node": "Filter Valid Suppliers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Text File": {
+      "main": [
+        [
+          {
+            "node": "Merge All Source Branches",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Group By Supplier": {
+      "main": [
+        [
+          {
+            "node": "Detect Supplier Pattern1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sheet Data": {
+      "main": [
+        [
+          {
+            "node": "Create sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split rows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Excel Item": {
+      "main": [
+        [
+          {
+            "node": "Extract Excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Extract from PDF": {
+      "main": [
+        [
+          {
+            "node": "Parse PDF Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split rows": {
+      "main": [
+        [
+          {
+            "node": "Export to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Supplier Pattern1": {
+      "main": [
+        [
+          {
+            "node": "JSON Parser 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3fc66a45-d51a-4602-9ba4-a31492a8f556",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "925e4d1feb3ab4f60c9a7f1c8e20f121ecf1c9e4724d46255c122983e6bacc49"
+  },
+  "id": "2HzZqU85iGFThMli",
+  "tags": []
+}
